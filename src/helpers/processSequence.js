@@ -75,6 +75,8 @@ const processSequence = ({ value, writeLog, handleSuccess, handleError }) => {
   const transformFrom10to2Base = (n) =>
     transformNumberBase({ from: 10, to: 2, number: n }).then(({ result }) => result);
 
+  const getAnimalById = (id) => api.get(`https://animals.tech/${id}/`);
+
   const testWithRegExp = (regExp) => (v) => regExp.test(v);
   const decimalRegExp = /^[+-]?[0-9]+(.[0-9]+)?$/;
   const isNumberDecimal = testWithRegExp(decimalRegExp);
@@ -111,11 +113,21 @@ const processSequence = ({ value, writeLog, handleSuccess, handleError }) => {
     log("Число трансформировано в двоичную: "),
     transformFrom10to2Base
   );
+
+  const getAnimalByIdANDLOG = syncAsyncCompose(
+    log("Полученная живность: "),
+    getAnimalById
+  );
   const getLengthANDLOG = R.compose(log("Взята длина: "), R.length);
   const squareANDLOG = R.compose(log("Возведено в квадрат: "), square);
   const getRemainderOf3ANDLOG = R.compose(log("Взят остаток от деления на 3: "), R.modulo(R.__, 3));
 
   syncAsyncCompose(
+    handleSuccess,
+
+    R.unless(R.identity, handleErrorAndPoisonCompose(handleApiRejectionError)),
+    getAnimalByIdANDLOG,
+
     getRemainderOf3ANDLOG,
     squareANDLOG,
     getLengthANDLOG,
