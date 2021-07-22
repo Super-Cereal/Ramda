@@ -25,7 +25,6 @@ const api = new Api();
 // compose, умеющий в асинхронные функции
 //
 // если одна из асинхронных функций рухнула, то следующие функции не выполняются
-// хотя итерация по ним все равно проходит
 const syncAsyncCompose = (...funcs) => (input) => {
     let isSomePromiseCollapsed = false;
 
@@ -44,18 +43,8 @@ const syncAsyncCompose = (...funcs) => (input) => {
 
 const poisonCompose = (text) => Promise.reject(text);
 
-// /**
-//  * Я – пример, удали меня
-//  */
-
-// const wait = (time) =>
-//   new Promise((resolve) => {
-//     setTimeout(resolve, time);
-//   });
-
 const processSequence = ({ value, writeLog, handleSuccess, handleError }) => {
-  // prettier-ignore
-  const log = (preface="") => R.tap((logText) => writeLog(`${preface}${logText}`));
+  const log = (preface = "") => R.tap((logText) => writeLog(`${preface}${logText}`));
 
   const handleErrorAndPoisonCompose = (errorHandler) => () => {
     errorHandler();
@@ -75,34 +64,13 @@ const processSequence = ({ value, writeLog, handleSuccess, handleError }) => {
   const transformFrom10to2Base = (n) =>
     transformNumberBase({ from: 10, to: 2, number: n }).then(({ result }) => result);
 
-  const getAnimalById = (id) => api.get(`https://animals.tech/${id}/`);
+  const getAnimalById = (id) => api.get(`https://animals.tech/${id}`, {}).then(({ result }) => result);
 
   const testWithRegExp = (regExp) => (v) => regExp.test(v);
   const decimalRegExp = /^[+-]?[0-9]+(.[0-9]+)?$/;
   const isNumberDecimal = testWithRegExp(decimalRegExp);
 
   const square = (n) => R.multiply(n, n);
-
-  //   /**
-  //    * Я – пример, удали меня
-  //    */
-  //  writeLog(value);
-
-  //  api.get('https://api.tech/numbers/base', {from: 2, to: 10, number: '01011010101'}).then(({result}) => {
-  //      writeLog(result);
-  //  });
-
-  //  wait(2500).then(() => {
-  //      writeLog('SecondLog')
-
-  //      return wait(1500);
-  //  }).then(() => {
-  //      writeLog('ThirdLog');
-
-  //      return wait(400);
-  //  }).then(() => {
-  //      handleSuccess('Done');
-  //  });
 
   const logValue = log("Число: ");
 
@@ -114,15 +82,12 @@ const processSequence = ({ value, writeLog, handleSuccess, handleError }) => {
     transformFrom10to2Base
   );
 
-  const getAnimalByIdANDLOG = syncAsyncCompose(
-    log("Полученная живность: "),
-    getAnimalById
-  );
+  const getAnimalByIdANDLOG = syncAsyncCompose(log("Полученная живность: "), getAnimalById);
   const getLengthANDLOG = R.compose(log("Взята длина: "), R.length);
   const squareANDLOG = R.compose(log("Возведено в квадрат: "), square);
   const getRemainderOf3ANDLOG = R.compose(log("Взят остаток от деления на 3: "), R.modulo(R.__, 3));
 
-  syncAsyncCompose(
+  const processValue = syncAsyncCompose(
     handleSuccess,
 
     R.unless(R.identity, handleErrorAndPoisonCompose(handleApiRejectionError)),
@@ -135,7 +100,11 @@ const processSequence = ({ value, writeLog, handleSuccess, handleError }) => {
     R.unless(R.identity, handleErrorAndPoisonCompose(handleApiRejectionError)),
     transformFrom10to2BaseANDLOG,
 
-    roundValueANDLOG,
+    roundValueANDLOG
+  );
+
+  syncAsyncCompose(
+    processValue,
 
     R.unless(validateN, handleErrorAndPoisonCompose(handleValidationError)),
     logValue
