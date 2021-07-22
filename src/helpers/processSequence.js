@@ -43,45 +43,42 @@ const syncAsyncCompose = (...funcs) => (input) => {
 
 const poisonCompose = (text) => Promise.reject(text);
 
-const processSequence = ({ value, writeLog, handleSuccess, handleError }) => {
-  const log = (preface = "") => R.tap((logText) => writeLog(`${preface}${logText}`));
+const lengthLessThan = (v) => R.compose(R.lt(R.__, v), R.length);
+const lengthMoreThan = (v) => R.compose(R.gt(R.__, v), R.length);
 
-  const handleErrorAndPoisonCompose = (errorHandler) => () => {
-    errorHandler();
-    return poisonCompose("Предыдущая функция вернула ложное значение");
-  };
+const isNumberPositive = R.compose(R.gte(R.__, 0), Number);
 
-  const lengthLessThan = (v) => R.compose(R.lt(R.__, v), R.length);
-  const lengthMoreThan = (v) => R.compose(R.gt(R.__, v), R.length);
+const roundNumber = R.compose(Math.round, Number);
 
-  const isNumberPositive = R.compose(R.gte(R.__, 0), Number);
+const transformNumberBase = R.partial(api.get, ["https://api.tech/numbers/base"]);
+const transformFrom10to2Base = (n) => transformNumberBase({ from: 10, to: 2, number: n }).then(({ result }) => result);
+
+const getAnimalById = (id) => api.get(`https://animals.tech/${id}`, {}).then(({ result }) => result);
+
+const testWithRegExp = (regExp) => (v) => regExp.test(v);
+const decimalRegExp = /^[+-]?[0-9]+(.[0-9]+)?$/;
+const isNumberDecimal = testWithRegExp(decimalRegExp);
+
+const square = (n) => R.multiply(n, n);
+
+const handleErrorAndPoisonCompose = (errorHandler) => () => {
+  errorHandler();
+  return poisonCompose("Предыдущая функция вернула ложное значение");
+};
+
+function processSequence({ value, writeLog, handleSuccess, handleError }) {
   const handleValidationError = () => handleError("ValidationError");
   const handleApiRejectionError = () => handleError("ApiRejectionError");
 
-  const roundNumber = R.compose(Math.round, Number);
-
-  const transformNumberBase = R.partial(api.get, ["https://api.tech/numbers/base"]);
-  const transformFrom10to2Base = (n) =>
-    transformNumberBase({ from: 10, to: 2, number: n }).then(({ result }) => result);
-
-  const getAnimalById = (id) => api.get(`https://animals.tech/${id}`, {}).then(({ result }) => result);
-
-  const testWithRegExp = (regExp) => (v) => regExp.test(v);
-  const decimalRegExp = /^[+-]?[0-9]+(.[0-9]+)?$/;
-  const isNumberDecimal = testWithRegExp(decimalRegExp);
-
-  const square = (n) => R.multiply(n, n);
+  const log = (preface = "") => R.tap((logText) => writeLog(`${preface}${logText}`));
 
   const logValue = log("Число: ");
-
-  const validateN = R.allPass([lengthLessThan(10), lengthMoreThan(2), isNumberDecimal, isNumberPositive]);
 
   const roundValueANDLOG = R.compose(log("Число округлено: "), roundNumber);
   const transformFrom10to2BaseANDLOG = syncAsyncCompose(
     log("Число трансформировано в двоичную: "),
     transformFrom10to2Base
   );
-
   const getAnimalByIdANDLOG = syncAsyncCompose(log("Полученная живность: "), getAnimalById);
   const getLengthANDLOG = R.compose(log("Взята длина: "), R.length);
   const squareANDLOG = R.compose(log("Возведено в квадрат: "), square);
@@ -103,12 +100,14 @@ const processSequence = ({ value, writeLog, handleSuccess, handleError }) => {
     roundValueANDLOG
   );
 
+  const validateN = R.allPass([lengthLessThan(10), lengthMoreThan(2), isNumberDecimal, isNumberPositive]);
+
   syncAsyncCompose(
     processValue,
 
     R.unless(validateN, handleErrorAndPoisonCompose(handleValidationError)),
     logValue
   )(value);
-};
+}
 
 export default processSequence;
